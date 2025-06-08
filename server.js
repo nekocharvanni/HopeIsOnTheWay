@@ -1,35 +1,38 @@
 const express = require("express");
 const cors = require("cors");
-const { Configuration, OpenAIApi } = require("openai");
 require("dotenv").config();
+const OpenAI = require("openai");
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static("public")); // serves index.html, etc.
-
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-const openai = new OpenAIApi(configuration);
+app.use(express.static("public"));
 
 app.post("/api/chat", async (req, res) => {
   const userMessage = req.body.message;
 
   try {
-    const completion = await openai.createChatCompletion({
+    const chatCompletion = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
-        { role: "system", content: "You are HopeBot, a kind, supportive chatbot that helps unhoused individuals find resources, comfort, and practical help. Keep answers compassionate and clear." },
+        {
+          role: "system",
+          content:
+            "You are HopeBot, a supportive AI helping unhoused people find housing, build resumes, access emotional support, and develop life skills. Be warm, non-judgmental, and encouraging.",
+        },
         { role: "user", content: userMessage },
       ],
     });
 
-    const botResponse = completion.data.choices[0].message.content;
-    res.json({ reply: botResponse });
+    const reply = chatCompletion.choices[0].message.content;
+    res.json({ reply });
   } catch (error) {
-    console.error("OpenAI error:", error.message);
-    res.status(500).json({ error: "Something went wrong." });
+    console.error("OpenAI Error:", error.message);
+    res.status(500).json({ error: "Something went wrong while generating a reply." });
   }
 });
 
