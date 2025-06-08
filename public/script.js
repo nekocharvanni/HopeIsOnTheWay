@@ -23,7 +23,7 @@ function sendMessage() {
 
 async function handleUserInput(message) {
   try {
-    const response = await fetch("https://hopebot-backend.onrender.com/api/chat", {
+    const response = await fetch("https://hope-is-on-the-way.onrender.com/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message }),
@@ -35,4 +35,6 @@ async function handleUserInput(message) {
     console.error("API call failed:", err);
     return "Oops! I had trouble connecting. Please try again soon.";
   }
+}
+
 }
