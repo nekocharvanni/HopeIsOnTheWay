@@ -15,23 +15,24 @@ function sendMessage() {
   appendMessage("You", message);
   userInput.value = "";
 
-  // Simple hardcoded response for now
-  setTimeout(() => {
-    let response = handleUserInput(message.toLowerCase());
-    appendMessage("HopeBot", response);
-  }, 500);
+  // Get the AI response
+  handleUserInput(message).then((botReply) => {
+    appendMessage("HopeBot", botReply);
+  });
 }
 
-function handleUserInput(message) {
-  if (message.includes("help")) {
-    return "I can help you find housing, create a resume, prepare for job interviews, or talk about how you’re feeling. What do you need help with?";
-  } else if (message.includes("housing")) {
-    return "To find housing, tell me your city or zip code and I’ll look up affordable options near you.";
-  } else if (message.includes("resume")) {
-    return "Let’s build your resume together. What job have you done before or what skills do you have?";
-  } else if (message.includes("mental") || message.includes("depressed")) {
-    return "I'm here to talk. You're not alone. Would you like to vent or hear some calming advice?";
-  } else {
-    return "I'm still learning. Try typing 'help' to see what I can do!";
+async function handleUserInput(message) {
+  try {
+    const response = await fetch("https://hopebot-backend.onrender.com/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
+
+    const data = await response.json();
+    return data.reply || "Sorry, something went wrong.";
+  } catch (err) {
+    console.error("API call failed:", err);
+    return "Oops! I had trouble connecting. Please try again soon.";
   }
 }
