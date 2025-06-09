@@ -36,5 +36,3 @@ async function handleUserInput(message) {
     return "Oops! I had trouble connecting. Please try again soon.";
   }
 }
-
-}
