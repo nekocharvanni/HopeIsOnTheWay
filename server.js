@@ -10,13 +10,15 @@ const openai = new OpenAI({
 const app = express();
 
 const corsOptions = {
-  origin: "https://hopefront.netlify.app",
-  methods: ["POST", "GET", "OPTIONS"],
+  origin: "https://hopefront.netlify.app", // ✅ your frontend domain
+  methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type"],
 };
 
+// ✅ MUST COME BEFORE app.use(express.json())
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // ✅ fix preflight CORS
+app.options("*", cors(corsOptions)); // ✅ catch all OPTIONS preflight
+
 app.use(express.json());
 app.use(express.static("public"));
 
