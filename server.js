@@ -31,9 +31,9 @@ app.post("/api/chat", async (req, res) => {
     const reply = chatCompletion.choices[0].message.content;
     res.json({ reply });
   } catch (error) {
-    console.error("OpenAI Error:", error.message);
-    res.status(500).json({ error: "Something went wrong while generating a reply." });
-  }
+  console.error("OpenAI Error:", error.response?.data || error.message || error);
+  res.status(500).json({ error: "Something went wrong while generating a reply." });
+}
 });
 
 const PORT = process.env.PORT || 3000;
