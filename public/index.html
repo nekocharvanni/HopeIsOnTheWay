@@ -53,6 +53,11 @@
       color: #721c24;
     }
 
+    .status-proxy {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+
     #chat-box {
       flex: 1;
       overflow-y: scroll;
@@ -140,7 +145,7 @@
 <body>
   <div class="chat-container">
     <h1>HopeBot</h1>
-    <div id="status" class="status-indicator status-offline">🔴 Testing Backend Connection...</div>
+    <div id="status" class="status-indicator status-offline">🟡 Testing connections...</div>
     
     <div id="chat-box">
       <div class="message bot-message">
@@ -154,9 +159,9 @@
     </div>
 
     <div class="diagnostic-panel">
-      <strong>🔧 Backend Diagnostics:</strong><br>
-      <button class="diagnostic-button" onclick="testBackend()">Test Backend</button>
-      <button class="diagnostic-button" onclick="testCORS()">Test CORS</button>
+      <strong>🔧 Connection Tests:</strong><br>
+      <button class="diagnostic-button" onclick="testDirect()">Test Direct</button>
+      <button class="diagnostic-button" onclick="testProxy()">Test Proxy</button>
       <button class="diagnostic-button" onclick="testChat()">Test Chat</button>
       <div id="diagnostic-result" class="diagnostic-result"></div>
     </div>
@@ -166,7 +171,17 @@
     const chatBox = document.getElementById("chat-box");
     const statusIndicator = document.getElementById("status");
     const BACKEND_URL = "https://hope-is-on-the-way.onrender.com";
+    
+    // CORS proxy services
+    const PROXY_URLS = [
+      "https://api.allorigins.win/raw?url=",
+      "https://corsproxy.io/?",
+      "https://cors-anywhere.herokuapp.com/"
+    ];
+    
     let backendOnline = false;
+    let useProxy = false;
+    let workingProxy = null;
 
     function appendMessage(sender, message, isUser = false) {
       const messageDiv = document.createElement("div");
@@ -177,12 +192,15 @@
     }
 
     function updateStatus() {
-      if (backendOnline) {
+      if (backendOnline && !useProxy) {
         statusIndicator.className = "status-indicator status-online";
-        statusIndicator.innerHTML = "🟢 Backend Online - AI Mode Active";
+        statusIndicator.innerHTML = "🟢 Direct Connection - Backend Online";
+      } else if (backendOnline && useProxy) {
+        statusIndicator.className = "status-indicator status-proxy";
+        statusIndicator.innerHTML = "🟡 Proxy Connection - Backend Online";
       } else {
         statusIndicator.className = "status-indicator status-offline";
-        statusIndicator.innerHTML = "🔴 Backend Connection Failed";
+        statusIndicator.innerHTML = "🔴 Using Demo Responses";
       }
     }
 
@@ -200,107 +218,117 @@
     }
 
     async function handleUserInput(message) {
+      // If we have a working connection, use it
       if (backendOnline) {
         try {
-          console.log("Sending message to backend:", message);
-          
-          const response = await fetch(`${BACKEND_URL}/api/chat`, {
+          let url = `${BACKEND_URL}/api/chat`;
+          if (useProxy && workingProxy) {
+            url = workingProxy + encodeURIComponent(url);
+          }
+
+          const response = await fetch(url, {
             method: "POST",
-            headers: { 
-              "Content-Type": "application/json",
-              "Accept": "application/json"
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ message }),
           });
 
-          console.log("Response status:", response.status);
-          
           if (response.ok) {
             const data = await response.json();
-            console.log("Response data:", data);
             return data.reply || "Sorry, I didn't get a proper response.";
           } else {
-            console.error("Response not OK:", response.status, response.statusText);
+            console.log("Backend request failed:", response.status);
             backendOnline = false;
             updateStatus();
           }
         } catch (err) {
-          console.error("Backend request failed:", err);
+          console.log("Connection failed:", err);
           backendOnline = false;
           updateStatus();
         }
       }
       
-      // Fallback response
-      return "I'm having trouble connecting right now. Please try again or contact support.";
+      // Fallback to demo responses
+      return getDemoResponse(message);
     }
 
-    async function testBackend() {
+    function getDemoResponse(message) {
+      const msg = message.toLowerCase();
+      
+      if (msg.includes('hello') || msg.includes('hi') || msg.includes('hey')) {
+        return "Hello! I'm HopeBot. I'm here to help you with housing, jobs, and support. How can I assist you today?";
+      } else if (msg.includes('housing') || msg.includes('shelter') || msg.includes('home') || msg.includes('homeless')) {
+        return "I understand you're looking for housing assistance. Here are some resources:\n\n• Call 211 for immediate local housing assistance\n• Look into emergency shelters in your area\n• Contact local churches and community organizations\n• Check with your city's housing authority for public housing\n• Look into transitional housing programs\n\nWould you like help with anything specific about housing applications?";
+      } else if (msg.includes('job') || msg.includes('work') || msg.includes('employment') || msg.includes('career')) {
+        return "I'm here to help with your job search! Here are some ways I can assist:\n\n• Help create or update your resume\n• Practice interview skills and questions\n• Find job search resources in your area\n• Look into job training and skills programs\n• Connect with local employment services\n\nWhat aspect of job searching would you like help with first?";
+      } else if (msg.includes('resume') || msg.includes('cv')) {
+        return "I'd be happy to help you with your resume! Here's a basic structure we can work with:\n\n• Contact Information\n• Professional Summary (2-3 sentences about you)\n• Work Experience (even informal jobs count!)\n• Skills (both technical and soft skills)\n• Education/Training\n\nDo you have any work experience we can include, even if it was informal, volunteer work, or side jobs?";
+      } else if (msg.includes('help') || msg.includes('support') || msg.includes('assistance')) {
+        return "I'm here to support you! Every challenge you're facing is temporary, and there are people and resources available to help. You're taking a positive step by reaching out.\n\nI can help you with:\n• Finding housing resources and assistance\n• Job search and resume building\n• Connecting with local services and support\n• Emotional support and encouragement\n\nWhat would be most helpful for you right now?";
+      } else {
+        return "I hear you, and I'm here to help. I can assist with housing resources, job search support, resume building, and connecting you with local services. What would be most helpful for you today?";
+      }
+    }
+
+    async function testDirect() {
       const resultDiv = document.getElementById("diagnostic-result");
-      resultDiv.innerHTML = "Testing backend connection...";
+      resultDiv.innerHTML = "Testing direct connection...";
       resultDiv.className = "diagnostic-result info";
 
       try {
-        console.log("Testing backend at:", BACKEND_URL);
-        
         const response = await fetch(`${BACKEND_URL}/`, { 
           method: 'GET',
-          headers: {
-            'Accept': 'application/json'
-          }
+          headers: { 'Accept': 'application/json' }
         });
-        
-        console.log("Backend test response:", response.status, response.statusText);
         
         if (response.ok) {
           const data = await response.text();
-          console.log("Backend test data:", data);
-          
           backendOnline = true;
+          useProxy = false;
           updateStatus();
-          resultDiv.innerHTML = `✅ Backend is online!\nStatus: ${response.status}\nResponse: ${data}`;
+          resultDiv.innerHTML = `✅ Direct connection working!\nResponse: ${data}`;
           resultDiv.className = "diagnostic-result success";
         } else {
-          console.error("Backend test failed:", response.status);
-          resultDiv.innerHTML = `❌ Backend returned status ${response.status}\nURL: ${BACKEND_URL}`;
+          resultDiv.innerHTML = `❌ Direct connection failed\nStatus: ${response.status}`;
           resultDiv.className = "diagnostic-result error";
         }
       } catch (error) {
-        console.error("Backend test error:", error);
-        resultDiv.innerHTML = `❌ Cannot connect to backend:\nError: ${error.message}\nURL: ${BACKEND_URL}`;
+        resultDiv.innerHTML = `❌ Direct connection failed\nError: ${error.message}`;
         resultDiv.className = "diagnostic-result error";
       }
     }
 
-    async function testCORS() {
+    async function testProxy() {
       const resultDiv = document.getElementById("diagnostic-result");
-      resultDiv.innerHTML = "Testing CORS with POST request...";
+      resultDiv.innerHTML = "Testing proxy connections...";
       resultDiv.className = "diagnostic-result info";
 
-      try {
-        const response = await fetch(`${BACKEND_URL}/api/chat`, {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          body: JSON.stringify({ message: "CORS test" }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          resultDiv.innerHTML = `✅ CORS is working!\nResponse: ${JSON.stringify(data, null, 2)}`;
-          resultDiv.className = "diagnostic-result success";
-          backendOnline = true;
-          updateStatus();
-        } else {
-          resultDiv.innerHTML = `❌ CORS test failed with status ${response.status}`;
-          resultDiv.className = "diagnostic-result error";
+      for (let i = 0; i < PROXY_URLS.length; i++) {
+        const proxy = PROXY_URLS[i];
+        try {
+          console.log(`Trying proxy ${i + 1}: ${proxy}`);
+          resultDiv.innerHTML = `Testing proxy ${i + 1}/${PROXY_URLS.length}...`;
+          
+          const response = await fetch(proxy + encodeURIComponent(`${BACKEND_URL}/`), {
+            method: 'GET'
+          });
+          
+          if (response.ok) {
+            const data = await response.text();
+            workingProxy = proxy;
+            backendOnline = true;
+            useProxy = true;
+            updateStatus();
+            resultDiv.innerHTML = `✅ Proxy connection working!\nUsing: ${proxy}\nResponse: ${data.substring(0, 100)}...`;
+            resultDiv.className = "diagnostic-result success";
+            return;
+          }
+        } catch (error) {
+          console.log(`Proxy ${i + 1} failed:`, error);
         }
-      } catch (error) {
-        resultDiv.innerHTML = `❌ CORS Error:\n${error.message}`;
-        resultDiv.className = "diagnostic-result error";
       }
+      
+      resultDiv.innerHTML = `❌ All proxy connections failed\nUsing demo responses instead`;
+      resultDiv.className = "diagnostic-result error";
     }
 
     async function testChat() {
@@ -308,37 +336,30 @@
       resultDiv.innerHTML = "Testing chat functionality...";
       resultDiv.className = "diagnostic-result info";
 
-      try {
-        const testMessage = "Hello, this is a test message";
-        const response = await fetch(`${BACKEND_URL}/api/chat`, {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          body: JSON.stringify({ message: testMessage }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          resultDiv.innerHTML = `✅ Chat is working!\nSent: "${testMessage}"\nReceived: "${data.reply}"`;
-          resultDiv.className = "diagnostic-result success";
-          backendOnline = true;
-          updateStatus();
-        } else {
-          resultDiv.innerHTML = `❌ Chat test failed with status ${response.status}`;
-          resultDiv.className = "diagnostic-result error";
-        }
-      } catch (error) {
-        resultDiv.innerHTML = `❌ Chat test error:\n${error.message}`;
-        resultDiv.className = "diagnostic-result error";
+      const testMessage = "Hello, this is a connection test";
+      const response = await handleUserInput(testMessage);
+      
+      if (backendOnline) {
+        resultDiv.innerHTML = `✅ Chat is working!\nSent: "${testMessage}"\nReceived: "${response}"`;
+        resultDiv.className = "diagnostic-result success";
+      } else {
+        resultDiv.innerHTML = `🟡 Using demo responses\nSent: "${testMessage}"\nReceived: "${response}"`;
+        resultDiv.className = "diagnostic-result info";
       }
     }
 
-    // Auto-test backend on page load
+    // Auto-test connections on page load
     window.addEventListener('load', () => {
-      console.log("Page loaded, testing backend...");
-      setTimeout(testBackend, 1000);
+      console.log("Page loaded, testing connections...");
+      setTimeout(async () => {
+        await testDirect();
+        if (!backendOnline) {
+          await testProxy();
+        }
+        if (!backendOnline) {
+          updateStatus();
+        }
+      }, 1000);
     });
 
     // Allow Enter key to send message
