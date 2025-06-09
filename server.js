@@ -20,6 +20,8 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.static("public"));
 
+app.options("/api/chat", cors(corsOptions)); // 👈 handle preflight requests
+
 app.post("/api/chat", async (req, res) => {
   const userMessage = req.body.message;
 
