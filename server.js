@@ -1,154 +1,79 @@
 const express = require("express");
-require("dotenv").config();
-const OpenAI = require("openai");
-
 const app = express();
 
-// ✅ CRITICAL: Add CORS middleware BEFORE anything else (Render-specific fix)
+// ✅ SUPER SIMPLE CORS - Works with everything
 app.use((req, res, next) => {
-  // Set CORS headers for ALL responses (including errors)
-  res.setHeader("Access-Control-Allow-Origin", "https://hopefront.netlify.app");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader("Access-Control-Allow-Credentials", "false");
-  res.setHeader("Access-Control-Max-Age", "7200");
-  
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "*");
+  res.header("Access-Control-Allow-Headers", "*");
   next();
 });
 
-// ✅ Handle preflight OPTIONS requests BEFORE other routes (Render-specific)
+// ✅ Handle preflight OPTIONS requests
 app.options("*", (req, res) => {
-  console.log("Preflight OPTIONS request received");
-  res.status(204).send(); // 204 No Content (not 200)
+  res.status(204).send();
 });
 
-// ✅ Add JSON parsing middleware
+// ✅ Parse JSON requests
 app.use(express.json());
 
-// ✅ Initialize OpenAI (with error handling)
-let openai;
-try {
-  if (!process.env.OPENAI_API_KEY) {
-    console.error("❌ OPENAI_API_KEY not found in environment variables");
-  } else {
-    openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-    console.log("✅ OpenAI initialized successfully");
-  }
-} catch (error) {
-  console.error("❌ Failed to initialize OpenAI:", error.message);
-}
-
-// ✅ Health check endpoint
+// ✅ Test endpoint - shows backend is working
 app.get("/", (req, res) => {
   res.json({ 
-    message: "HopeBot backend is running!",
+    message: "HopeBot backend is working!",
     timestamp: new Date().toISOString(),
-    openai_configured: !!openai
+    status: "online"
   });
 });
 
-// ✅ Main chat endpoint with robust error handling
-app.post("/api/chat", async (req, res) => {
-  console.log("🔥 Chat request received:", req.body);
+// ✅ Simple chat endpoint (no OpenAI for now - just testing)
+app.post("/api/chat", (req, res) => {
+  console.log("Chat request received:", req.body);
   
-  try {
-    // Validate request
-    if (!req.body || !req.body.message) {
-      console.log("❌ No message in request body");
-      return res.status(400).json({ error: "Message is required" });
-    }
-
-    const userMessage = req.body.message.trim();
-    if (userMessage === "") {
-      console.log("❌ Empty message");
-      return res.status(400).json({ error: "Message cannot be empty" });
-    }
-
-    // Check if OpenAI is configured
-    if (!openai) {
-      console.log("❌ OpenAI not configured");
-      return res.status(500).json({ 
-        error: "AI service is not configured. Please contact support." 
-      });
-    }
-
-    console.log(`📝 Processing message: "${userMessage}"`);
-
-    // Call OpenAI API
-    const chatCompletion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: "You are HopeBot, a supportive AI helping unhoused people find housing, build resumes, access emotional support, and develop life skills. Be warm, non-judgmental, and encouraging. Keep responses helpful but concise (under 200 words)."
-        },
-        { 
-          role: "user", 
-          content: userMessage 
-        }
-      ],
-      max_tokens: 300,
-      temperature: 0.7,
-    });
-
-    const reply = chatCompletion.choices[0].message.content;
-    console.log(`✅ Generated reply: "${reply.substring(0, 50)}..."`);
-
-    // Return successful response
-    res.json({ reply });
-
-  } catch (error) {
-    console.error("❌ Error in /api/chat:", error);
-    
-    // Handle specific OpenAI errors
-    if (error.code === 'insufficient_quota') {
-      return res.status(500).json({ 
-        error: "I'm temporarily unavailable due to high demand. Please try again in a few minutes." 
-      });
-    } 
-    
-    if (error.code === 'invalid_api_key') {
-      return res.status(500).json({ 
-        error: "Service configuration error. Please contact support." 
-      });
-    }
-    
-    if (error.code === 'rate_limit_exceeded') {
-      return res.status(429).json({ 
-        error: "I'm receiving many requests right now. Please wait a moment and try again." 
-      });
-    }
-    
-    // Generic error
-    return res.status(500).json({ 
-      error: "I'm having trouble right now. Please try again in a moment." 
-    });
+  const message = req.body?.message || "";
+  
+  // Simple predefined responses to test the connection
+  const responses = {
+    "hello": "Hello! I'm HopeBot. I'm here to help you with housing, jobs, and support. How can I assist you today?",
+    "housing": "I can help you find housing resources. Here are some immediate steps:\n• Call 211 for local emergency housing\n• Contact local homeless shelters\n• Look into transitional housing programs\n• Check with your city's housing authority",
+    "job": "I can help with job searching and resume building. What specific help do you need?\n• Resume writing and formatting\n• Job search strategies\n• Interview preparation\n• Finding local employment resources",
+    "resume": "I'd be happy to help you build a resume! Even if you don't have traditional work experience, we can include:\n• Volunteer work\n• Skills you've learned\n• Any informal jobs or gigs\n• Education or training\nWhat experience do you have that we can highlight?",
+    "default": "I'm here to help! I can assist with:\n• Finding housing resources\n• Job search and resume help\n• Emotional support and encouragement\n• Connecting you with local services\n\nWhat would be most helpful for you right now?"
+  };
+  
+  // Simple keyword matching for responses
+  let reply = responses.default;
+  const lowerMessage = message.toLowerCase();
+  
+  if (lowerMessage.includes("hello") || lowerMessage.includes("hi")) {
+    reply = responses.hello;
+  } else if (lowerMessage.includes("housing") || lowerMessage.includes("home") || lowerMessage.includes("shelter")) {
+    reply = responses.housing;
+  } else if (lowerMessage.includes("job") || lowerMessage.includes("work") || lowerMessage.includes("employment")) {
+    reply = responses.job;
+  } else if (lowerMessage.includes("resume") || lowerMessage.includes("cv")) {
+    reply = responses.resume;
   }
+  
+  console.log("Sending reply:", reply);
+  res.json({ reply });
 });
 
-// ✅ 404 handler
+// ✅ 404 handler for unknown routes
 app.use((req, res) => {
   res.status(404).json({ error: "Endpoint not found" });
 });
 
-// ✅ Global error handler (CRITICAL for Render CORS)
+// ✅ Error handler
 app.use((err, req, res, next) => {
-  console.error("💥 Global error handler:", err);
-  
-  // Ensure CORS headers are set even for errors
-  res.setHeader("Access-Control-Allow-Origin", "https://hopefront.netlify.app");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  
+  console.error("Server error:", err);
   res.status(500).json({ error: "Internal server error" });
 });
 
-// ✅ Start server
+// ✅ Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 HopeBot backend running on port ${PORT}`);
-  console.log(`🔑 OpenAI API Key configured: ${process.env.OPENAI_API_KEY ? 'Yes' : 'No'}`);
-  console.log(`🌐 Accepting requests from: https://hopefront.netlify.app`);
+  console.log(`📍 Server accessible at: http://localhost:${PORT}`);
+  console.log(`✅ CORS enabled for all origins`);
 });
