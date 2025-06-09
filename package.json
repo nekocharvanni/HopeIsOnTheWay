@@ -1,14 +1,54 @@
-{
-  "name": "hopebot",
-  "version": "1.0.0",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^16.0.3",
-    "express": "^4.18.2",
-    "openai": "^4.0.0"
-  }
-}
+const express = require("express");
+const app = express();
+
+// ✅ SUPER SIMPLE CORS - Works with everything
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "*");
+  res.header("Access-Control-Allow-Headers", "*");
+  next();
+});
+
+// ✅ Handle preflight
+app.options("*", (req, res) => {
+  res.status(204).send();
+});
+
+// ✅ Parse JSON
+app.use(express.json());
+
+// ✅ Test endpoint
+app.get("/", (req, res) => {
+  res.json({ 
+    message: "HopeBot backend is working!",
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ✅ Simple chat endpoint (no OpenAI for now)
+app.post("/api/chat", (req, res) => {
+  console.log("Chat request:", req.body);
+  
+  const message = req.body?.message || "";
+  
+  // Simple responses to test
+  const responses = {
+    "hello": "Hello! I'm HopeBot. I'm here to help you with housing, jobs, and support.",
+    "housing": "I can help you find housing resources. Contact 211 for immediate assistance.",
+    "job": "I can help with job searching and resume building. What specific help do you need?",
+    "default": "I'm here to help! I can assist with housing, job search, and emotional support."
+  };
+  
+  let reply = responses.default;
+  if (message.toLowerCase().includes("hello")) reply = responses.hello;
+  if (message.toLowerCase().includes("housing")) reply = responses.housing;
+  if (message.toLowerCase().includes("job")) reply = responses.job;
+  
+  res.json({ reply });
+});
+
+// ✅ Start server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Simple HopeBot running on port ${PORT}`);
+});
