@@ -8,9 +8,15 @@ const openai = new OpenAI({
 });
 
 const app = express();
-app.use(cors({
-  origin: "https://hopefront.netlify.app"  // allow Netlify frontend
-}));
+
+const corsOptions = {
+  origin: "https://hopefront.netlify.app",
+  methods: ["POST", "GET", "OPTIONS"],
+  allowedHeaders: ["Content-Type"],
+  credentials: false,
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.static("public"));
 
