@@ -9,14 +9,15 @@ const openai = new OpenAI({
 
 const app = express();
 
+// ✅ Allow requests from your Netlify frontend
 const corsOptions = {
   origin: "https://hopefront.netlify.app",
   methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type"],
 };
 
-app.use(cors(corsOptions));                  // ✅ Enable CORS
-app.options("*", cors(corsOptions));         // ✅ Handle preflight
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // Handle preflight requests
 
 app.use(express.json());
 
@@ -29,11 +30,24 @@ app.post("/api/chat", async (req, res) => {
       messages: [
         {
           role: "system",
-          content: "You are HopeBot, a supportive AI helping unhoused people...",
+          content:
+            "You are HopeBot, a supportive AI helping unhoused people find housing, build resumes, access emotional support, and develop life skills. Be warm, non-judgmental, and encouraging.",
         },
         { role: "user", content: userMessage },
       ],
     });
 
     const reply = chatCompletion.choices[0].message.content;
-    res.setHeader("Access-Control-Allow-Origin", "ht
+
+    // ✅ Ensure CORS header is returned in response
+    res.setHeader("Access-Control-Allow-Origin", "https://hopefront.netlify.app");
+
+    res.json({ reply });
+  } catch (error) {
+    console.error("OpenAI Error:", error.response?.data || error.message || error);
+    res.status(500).json({ error: "Something went wrong while generating a reply." });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`HopeBot backend running on port ${PORT}`));
