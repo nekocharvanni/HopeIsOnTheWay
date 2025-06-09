@@ -1,79 +1,123 @@
 const express = require("express");
+const cors = require("cors");
 const app = express();
 
-// ✅ SUPER SIMPLE CORS - Works with everything
+// ✅ METHOD 1: Use the cors middleware (most reliable)
+const corsOptions = {
+  origin: "*", // Allow all origins for testing
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+  credentials: false
+};
+
+app.use(cors(corsOptions));
+
+// ✅ METHOD 2: Manual CORS headers as backup
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "*");
-  res.header("Access-Control-Allow-Headers", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  res.header("Access-Control-Max-Age", "3600");
+  
+  // Handle preflight requests immediately
+  if (req.method === 'OPTIONS') {
+    console.log("OPTIONS preflight request handled");
+    return res.status(204).send();
+  }
+  
   next();
 });
 
-// ✅ Handle preflight OPTIONS requests
-app.options("*", (req, res) => {
-  res.status(204).send();
-});
-
-// ✅ Parse JSON requests
+// ✅ Parse JSON
 app.use(express.json());
 
-// ✅ Test endpoint - shows backend is working
+// ✅ Add request logging
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  console.log("Headers:", req.headers);
+  next();
+});
+
+// ✅ Root endpoint
 app.get("/", (req, res) => {
+  console.log("Health check requested");
+  
+  // Ensure CORS headers are set
+  res.header("Access-Control-Allow-Origin", "*");
+  
   res.json({ 
     message: "HopeBot backend is working!",
     timestamp: new Date().toISOString(),
-    status: "online"
+    status: "online",
+    cors: "enabled"
   });
 });
 
-// ✅ Simple chat endpoint (no OpenAI for now - just testing)
+// ✅ Chat endpoint
 app.post("/api/chat", (req, res) => {
   console.log("Chat request received:", req.body);
   
+  // Ensure CORS headers are set
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type");
+  
   const message = req.body?.message || "";
   
-  // Simple predefined responses to test the connection
+  // Simple responses for testing
   const responses = {
-    "hello": "Hello! I'm HopeBot. I'm here to help you with housing, jobs, and support. How can I assist you today?",
-    "housing": "I can help you find housing resources. Here are some immediate steps:\n• Call 211 for local emergency housing\n• Contact local homeless shelters\n• Look into transitional housing programs\n• Check with your city's housing authority",
-    "job": "I can help with job searching and resume building. What specific help do you need?\n• Resume writing and formatting\n• Job search strategies\n• Interview preparation\n• Finding local employment resources",
-    "resume": "I'd be happy to help you build a resume! Even if you don't have traditional work experience, we can include:\n• Volunteer work\n• Skills you've learned\n• Any informal jobs or gigs\n• Education or training\nWhat experience do you have that we can highlight?",
-    "default": "I'm here to help! I can assist with:\n• Finding housing resources\n• Job search and resume help\n• Emotional support and encouragement\n• Connecting you with local services\n\nWhat would be most helpful for you right now?"
+    "hello": "Hello! I'm HopeBot. I'm here to help you with housing, jobs, and support.",
+    "housing": "I can help you find housing resources. Contact 211 for immediate assistance.",
+    "job": "I can help with job searching and resume building. What specific help do you need?",
+    "test": "Test successful! CORS is working properly.",
+    "default": "I'm here to help! I can assist with housing, job search, and emotional support."
   };
   
-  // Simple keyword matching for responses
   let reply = responses.default;
   const lowerMessage = message.toLowerCase();
   
   if (lowerMessage.includes("hello") || lowerMessage.includes("hi")) {
     reply = responses.hello;
-  } else if (lowerMessage.includes("housing") || lowerMessage.includes("home") || lowerMessage.includes("shelter")) {
+  } else if (lowerMessage.includes("housing")) {
     reply = responses.housing;
-  } else if (lowerMessage.includes("job") || lowerMessage.includes("work") || lowerMessage.includes("employment")) {
+  } else if (lowerMessage.includes("job")) {
     reply = responses.job;
-  } else if (lowerMessage.includes("resume") || lowerMessage.includes("cv")) {
-    reply = responses.resume;
+  } else if (lowerMessage.includes("test")) {
+    reply = responses.test;
   }
   
   console.log("Sending reply:", reply);
   res.json({ reply });
 });
 
-// ✅ 404 handler for unknown routes
+// ✅ Catch all OPTIONS requests
+app.options("*", (req, res) => {
+  console.log("Catch-all OPTIONS request");
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.status(204).send();
+});
+
+// ✅ 404 handler
 app.use((req, res) => {
+  console.log("404 - Route not found:", req.path);
+  res.header("Access-Control-Allow-Origin", "*");
   res.status(404).json({ error: "Endpoint not found" });
 });
 
 // ✅ Error handler
 app.use((err, req, res, next) => {
   console.error("Server error:", err);
+  res.header("Access-Control-Allow-Origin", "*");
   res.status(500).json({ error: "Internal server error" });
 });
 
-// ✅ Start the server
+// ✅ Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 HopeBot backend running on port ${PORT}`);
   console.log(`📍 Server accessible at: http://localhost:${PORT}`);
-  console.log(`✅ CORS enabled for all origins`);
+  console.log(`✅ CORS enabled with multiple methods`);
+  console.log(`🌐 Accepting requests from all origins`);
 });
