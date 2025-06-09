@@ -140,13 +140,11 @@
 <body>
   <div class="chat-container">
     <h1>HopeBot</h1>
-    <div id="status" class="status-indicator status-offline">🔴 Backend Offline - Using Demo Mode</div>
+    <div id="status" class="status-indicator status-offline">🔴 Testing Backend Connection...</div>
     
     <div id="chat-box">
       <div class="message bot-message">
         <strong>HopeBot:</strong> Hello! I'm here to help you with housing resources, job search assistance, and emotional support. How can I help you today?
-        <br><br>
-        <em>Note: I'm currently in demo mode while we fix the backend connection.</em>
       </div>
     </div>
     
@@ -159,7 +157,7 @@
       <strong>🔧 Backend Diagnostics:</strong><br>
       <button class="diagnostic-button" onclick="testBackend()">Test Backend</button>
       <button class="diagnostic-button" onclick="testCORS()">Test CORS</button>
-      <button class="diagnostic-button" onclick="showInstructions()">Fix Instructions</button>
+      <button class="diagnostic-button" onclick="testChat()">Test Chat</button>
       <div id="diagnostic-result" class="diagnostic-result"></div>
     </div>
   </div>
@@ -170,17 +168,6 @@
     const BACKEND_URL = "https://hope-is-on-the-way.onrender.com";
     let backendOnline = false;
 
-    // Demo responses for when backend is offline
-    const demoResponses = {
-      "housing": "I understand you're looking for housing assistance. Here are some resources that might help:\n\n• Contact your local 211 service (dial 2-1-1) for immediate housing assistance\n• Look into local homeless shelters and transitional housing programs\n• Check with local churches and community organizations\n• Contact your city's housing authority for public housing options\n\nWould you like me to help you with anything specific about housing applications?",
-      
-      "job": "I'm here to help with your job search! Here are some steps we can take:\n\n• Create or update your resume\n• Practice interview skills\n• Find job search resources in your area\n• Look into job training programs\n• Connect with local employment services\n\nWhat aspect of job searching would you like help with first?",
-      
-      "resume": "I'd be happy to help you with your resume! Here's a basic structure we can work with:\n\n• Contact Information\n• Professional Summary (2-3 sentences about you)\n• Work Experience (even informal jobs count!)\n• Skills (both hard and soft skills)\n• Education/Training\n\nDo you have any work experience we can include, even if it was informal or volunteer work?",
-      
-      "default": "I hear you, and I'm here to support you. Every challenge you're facing is temporary, and there are people and resources available to help. You're taking a positive step by reaching out.\n\nI can help you with:\n• Finding housing resources\n• Job search and resume help\n• Connecting with local services\n• Emotional support and encouragement\n\nWhat would be most helpful for you right now?"
-    };
-
     function appendMessage(sender, message, isUser = false) {
       const messageDiv = document.createElement("div");
       messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
@@ -189,17 +176,13 @@
       chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    function getDemoResponse(message) {
-      const msg = message.toLowerCase();
-      
-      if (msg.includes('housing') || msg.includes('shelter') || msg.includes('home')) {
-        return demoResponses.housing;
-      } else if (msg.includes('job') || msg.includes('work') || msg.includes('employment')) {
-        return demoResponses.job;
-      } else if (msg.includes('resume') || msg.includes('cv')) {
-        return demoResponses.resume;
+    function updateStatus() {
+      if (backendOnline) {
+        statusIndicator.className = "status-indicator status-online";
+        statusIndicator.innerHTML = "🟢 Backend Online - AI Mode Active";
       } else {
-        return demoResponses.default;
+        statusIndicator.className = "status-indicator status-offline";
+        statusIndicator.innerHTML = "🔴 Backend Connection Failed";
       }
     }
 
@@ -211,7 +194,6 @@
       appendMessage("You", message, true);
       userInput.value = "";
 
-      // Try backend first, fall back to demo
       handleUserInput(message).then((botReply) => {
         appendMessage("HopeBot", botReply);
       });
@@ -220,74 +202,94 @@
     async function handleUserInput(message) {
       if (backendOnline) {
         try {
+          console.log("Sending message to backend:", message);
+          
           const response = await fetch(`${BACKEND_URL}/api/chat`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+              "Content-Type": "application/json",
+              "Accept": "application/json"
+            },
             body: JSON.stringify({ message }),
           });
 
+          console.log("Response status:", response.status);
+          
           if (response.ok) {
             const data = await response.json();
-            return data.reply || getDemoResponse(message);
+            console.log("Response data:", data);
+            return data.reply || "Sorry, I didn't get a proper response.";
+          } else {
+            console.error("Response not OK:", response.status, response.statusText);
+            backendOnline = false;
+            updateStatus();
           }
         } catch (err) {
-          console.error("Backend failed:", err);
+          console.error("Backend request failed:", err);
           backendOnline = false;
           updateStatus();
         }
       }
       
-      // Use demo response
-      return getDemoResponse(message);
-    }
-
-    function updateStatus() {
-      if (backendOnline) {
-        statusIndicator.className = "status-indicator status-online";
-        statusIndicator.innerHTML = "🟢 Backend Online - Full AI Mode";
-      } else {
-        statusIndicator.className = "status-indicator status-offline";
-        statusIndicator.innerHTML = "🔴 Backend Offline - Demo Mode";
-      }
+      // Fallback response
+      return "I'm having trouble connecting right now. Please try again or contact support.";
     }
 
     async function testBackend() {
       const resultDiv = document.getElementById("diagnostic-result");
-      resultDiv.innerHTML = "Testing backend...";
+      resultDiv.innerHTML = "Testing backend connection...";
       resultDiv.className = "diagnostic-result info";
 
       try {
-        const response = await fetch(`${BACKEND_URL}/`, { method: 'GET' });
+        console.log("Testing backend at:", BACKEND_URL);
+        
+        const response = await fetch(`${BACKEND_URL}/`, { 
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        
+        console.log("Backend test response:", response.status, response.statusText);
+        
         if (response.ok) {
           const data = await response.text();
+          console.log("Backend test data:", data);
+          
           backendOnline = true;
           updateStatus();
-          resultDiv.innerHTML = `✅ Backend is online!\nResponse: ${data}`;
+          resultDiv.innerHTML = `✅ Backend is online!\nStatus: ${response.status}\nResponse: ${data}`;
           resultDiv.className = "diagnostic-result success";
         } else {
-          resultDiv.innerHTML = `❌ Backend returned status ${response.status}`;
+          console.error("Backend test failed:", response.status);
+          resultDiv.innerHTML = `❌ Backend returned status ${response.status}\nURL: ${BACKEND_URL}`;
           resultDiv.className = "diagnostic-result error";
         }
       } catch (error) {
-        resultDiv.innerHTML = `❌ Cannot connect to backend:\n${error.message}`;
+        console.error("Backend test error:", error);
+        resultDiv.innerHTML = `❌ Cannot connect to backend:\nError: ${error.message}\nURL: ${BACKEND_URL}`;
         resultDiv.className = "diagnostic-result error";
       }
     }
 
     async function testCORS() {
       const resultDiv = document.getElementById("diagnostic-result");
-      resultDiv.innerHTML = "Testing CORS...";
+      resultDiv.innerHTML = "Testing CORS with POST request...";
       resultDiv.className = "diagnostic-result info";
 
       try {
         const response = await fetch(`${BACKEND_URL}/api/chat`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: "test" }),
+          headers: { 
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({ message: "CORS test" }),
         });
 
         if (response.ok) {
-          resultDiv.innerHTML = "✅ CORS is working! Backend should be functional.";
+          const data = await response.json();
+          resultDiv.innerHTML = `✅ CORS is working!\nResponse: ${JSON.stringify(data, null, 2)}`;
           resultDiv.className = "diagnostic-result success";
           backendOnline = true;
           updateStatus();
@@ -301,36 +303,41 @@
       }
     }
 
-    function showInstructions() {
+    async function testChat() {
       const resultDiv = document.getElementById("diagnostic-result");
-      resultDiv.innerHTML = `🔧 To fix your backend:
-
-1. Check Render Dashboard:
-   - Go to render.com dashboard
-   - Check if deploy succeeded
-   - Look at logs for errors
-
-2. Verify Environment Variables:
-   - OPENAI_API_KEY must be set
-   - No extra spaces/characters
-
-3. Check OpenAI Account:
-   - Verify API key is valid
-   - Check you have credits available
-
-4. Test manually:
-   - Visit: ${BACKEND_URL}/
-   - Should show: {"message": "HopeBot backend is running!"}
-
-5. If still failing:
-   - Check GitHub repo has latest server.js
-   - Trigger manual deploy in Render
-   - Check server logs for startup errors`;
+      resultDiv.innerHTML = "Testing chat functionality...";
       resultDiv.className = "diagnostic-result info";
+
+      try {
+        const testMessage = "Hello, this is a test message";
+        const response = await fetch(`${BACKEND_URL}/api/chat`, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({ message: testMessage }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          resultDiv.innerHTML = `✅ Chat is working!\nSent: "${testMessage}"\nReceived: "${data.reply}"`;
+          resultDiv.className = "diagnostic-result success";
+          backendOnline = true;
+          updateStatus();
+        } else {
+          resultDiv.innerHTML = `❌ Chat test failed with status ${response.status}`;
+          resultDiv.className = "diagnostic-result error";
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `❌ Chat test error:\n${error.message}`;
+        resultDiv.className = "diagnostic-result error";
+      }
     }
 
-    // Auto-test backend on load
+    // Auto-test backend on page load
     window.addEventListener('load', () => {
+      console.log("Page loaded, testing backend...");
       setTimeout(testBackend, 1000);
     });
 
