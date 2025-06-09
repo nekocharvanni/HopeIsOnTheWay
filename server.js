@@ -13,14 +13,12 @@ const corsOptions = {
   origin: "https://hopefront.netlify.app",
   methods: ["POST", "GET", "OPTIONS"],
   allowedHeaders: ["Content-Type"],
-  credentials: false,
 };
 
 app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // ✅ fix preflight CORS
 app.use(express.json());
 app.use(express.static("public"));
-
-app.options("/api/chat", cors(corsOptions)); // 👈 handle preflight requests
 
 app.post("/api/chat", async (req, res) => {
   const userMessage = req.body.message;
